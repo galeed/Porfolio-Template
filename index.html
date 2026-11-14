@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alex Devson // TUI Terminal Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================
+   VARIABLES
+   ============================================ */
+:root {
+  --bg-primary: #0a0e14;
+  --bg-secondary: #0d1117;
+  --bg-panel: #11161d;
+  --bg-hover: #1a2029;
+  --text-primary: #00ff9c;
+  --text-secondary: #7ee787;
+  --text-muted: #6e7681;
+  --text-dim: #484f58;
+  --accent-cyan: #39d0d8;
+  --accent-magenta: #ff79c6;
+  --accent-yellow: #ffd580;
+  --accent-red: #ff5555;
+  --accent-orange: #ffb86c;
+  --border-primary: #00ff9c;
+  --border-dim: #30363d;
+  --border-glow: rgba(0, 255, 156, 0.3);
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --glow: 0 0 8px var(--border-glow);
+  --transition: 150ms ease;
+}
+
+/* ============================================
+   RESET / BASE
+   ============================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; scroll-behavior: smooth; }
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Efecto scanlines CRT */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 3px
+  );
+  animation: scanline 8s linear infinite;
+}
+@keyframes scanline {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 100px; }
+}
+/* Viñeta */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 9998;
+  background: radial-gradient(ellipse at center, transparent 0%, transparent 60%, rgba(0,0,0,0.5) 100%);
+}
+
+/* ============================================
+   LAYOUT
+   ============================================ */
+.terminal {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-window {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  box-shadow: var(--glow), inset 0 0 60px rgba(0,255,156,0.02);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: windowIn 400ms ease-out;
+}
+@keyframes windowIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-dim);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.terminal-dots {
+  display: flex; gap: 6px; margin-right: var(--space-sm);
+}
+.terminal-dots span {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--accent-red);
+  box-shadow: 0 0 6px currentColor;
+}
+.terminal-dots span:nth-child(2) { background: var(--accent-yellow); }
+.terminal-dots span:nth-child(3) { background: var(--text-primary); }
+.terminal-title { flex: 1; text-align: center; color: var(--text-secondary); }
+.terminal-status { color: var(--text-primary); }
+
+.terminal-body {
+  padding: var(--space-lg);
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) var(--bg-secondary);
+}
+.terminal-body::-webkit-scrollbar { width: 8px; }
+.terminal-body::-webkit-scrollbar-track { background: var(--bg-secondary); }
+.terminal-body::-webkit-scrollbar-thumb {
+  background: var(--border-dim); border-radius: 4px;
+}
+.terminal-body::-webkit-scrollbar-thumb:hover { background: var(--border-primary); }
+
+/* ============================================
+   NOTICE BANNER
+   ============================================ */
+.notice {
+  display: none;
+  background: rgba(255, 213, 128, 0.08);
+  border: 1px dashed var(--accent-yellow);
+  color: var(--accent-yellow);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  font-size: 0.85rem;
+  border-radius: 4px;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+@media (max-width: 768px) {
+  .notice { display: block; }
+}
+
+/* ============================================
+   PROMPT / LINES
+   ============================================ */
+.prompt {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: 0.9rem;
+  margin-bottom: var(--space-sm);
+}
+.prompt-user { color: var(--accent-cyan); font-weight: 700; }
+.prompt-sep  { color: var(--text-muted); }
+.prompt-host { color: var(--accent-magenta); font-weight: 700; }
+.prompt-path { color: var(--accent-yellow); }
+.prompt-symbol { color: var(--text-primary); margin-left: 2px; }
+
+.line {
+  margin-bottom: var(--space-md);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   CURSOR
+   ============================================ */
+.cursor {
+  display: inline-block;
+  width: 9px; height: 1.1em;
+  background: var(--text-primary);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 4px;
+  box-shadow: var(--glow);
+}
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* ============================================
+   ASCII ART
+   ============================================ */
+.ascii-art {
+  font-family: var(--font-mono);
+  white-space: pre;
+  color: var(--text-primary);
+  text-shadow: var(--glow);
+  font-size: clamp(5px, 1.1vw, 11px);
+  line-height: 1.05;
+  margin: var(--space-md) 0;
+  overflow-x: auto;
+  user-select: all;
+}
+.ascii-art.cyan { color: var(--accent-cyan); }
+.ascii-art.magenta { color: var(--accent-magenta); }
+.ascii-art.yellow { color: var(--accent-yellow); }
+.ascii-art.small { font-size: 0.75rem; text-shadow: none; }
+
+/* Caja ASCII */
+.ascii-box {
+  display: inline-block;
+  font-family: var(--font-mono);
+  white-space: pre;
+  border: 1px solid var(--border-primary);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  box-shadow: var(--glow);
+  margin: var(--space-sm) 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+.ascii-box.yellow { border-color: var(--accent-yellow); color: var(--accent-yellow); }
+.ascii-box.magenta { border-color: var(--accent-magenta); color: var(--accent-magenta); }
+
+/* ============================================
+   HEADINGS / COMMAND TITLES
+   ============================================ */
+.command-title {
+  color: var(--accent-yellow);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin: var(--space-xl) 0 var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px dashed var(--border-dim);
+  text-shadow: 0 0 8px rgba(255, 213, 128, 0.4);
+}
+.command-title:first-child { margin-top: 0; }
+.command-title::before {
+  content: '> ';
+  color: var(--text-muted);
+  text-shadow: none;
+}
+
+.section-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+}
+.section-tag.active {
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+  box-shadow: var(--glow);
+}
+
+/* ============================================
+   WELCOME / SYSTEM INFO
+   ============================================ */
+.welcome-line {
+  color: var(--accent-cyan);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-sm);
+}
+.welcome-line strong { color: var(--text-primary); }
+
+.tagline {
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: var(--space-md) 0;
+  text-shadow: var(--glow);
+}
+
+.open-badge {
+  display: inline-block;
+  color: var(--accent-yellow);
+  border: 1px solid var(--accent-yellow);
+  padding: 4px 12px;
+  margin: var(--space-sm) 0 var(--space-md);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  box-shadow: 0 0 10px rgba(255, 213, 128, 0.3);
+  animation: badgePulse 2.5s ease-in-out infinite;
+}
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(255,213,128,0.3); }
+  50% { box-shadow: 0 0 20px rgba(255,213,128,0.6); }
+}
+
+/* ============================================
+   SYSTEM INFO GRID
+   ============================================ */
+.system-info {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-xs) var(--space-lg);
+  font-size: 0.85rem;
+  margin: var(--space-md) 0;
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-dim);
+  border-left: 3px solid var(--border-primary);
+  border-radius: 4px;
+}
+.system-info dt {
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+.system-info dt::after { content: ':'; color: var(--text-muted); }
+.system-info dd { color: var(--text-secondary); margin: 0; }
+
+.palette-swatches {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  grid-column: 1 / -1; margin-top: var(--space-sm);
+}
+.swatch {
+  width: 22px; height: 22px;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  transition: var(--transition);
+  cursor: pointer;
+  position: relative;
+}
+.swatch:hover { transform: scale(1.15); box-shadow: var(--glow); }
+.swatch::after {
+  content: attr(data-color);
+  position: absolute; bottom: calc(100% + 4px); left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-hover); color: var(--text-primary);
+  padding: 2px 6px; border-radius: 3px;
+  font-size: 0.65rem; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: var(--transition);
+}
+.swatch:hover::after { opacity: 1; }
+
+/* ============================================
+   BIO / ABOUT
+   ============================================ */
+.bio-text {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin-bottom: var(--space-md);
+}
+.quote {
+  color: var(--accent-magenta);
+  font-style: italic;
+  padding: var(--space-sm) var(--space-md);
+  border-left: 2px solid var(--accent-magenta);
+  margin: var(--space-md) 0;
+  background: rgba(255, 121, 198, 0.05);
+}
+.meta-row {
+  display: flex; flex-wrap: wrap; gap: var(--space-md);
+  font-size: 0.85rem; color: var(--text-muted);
+  margin-top: var(--space-md);
+}
+.meta-row strong { color: var(--accent-cyan); }
+
+/* ============================================
+   SKILLS
+   ============================================ */
+.skill-category {
+  color: var(--accent-cyan);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: var(--space-lg) 0 var(--space-md);
+  text-shadow: 0 0 6px rgba(57, 208, 216, 0.4);
+}
+
+.skill {
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) 0;
+}
+.skill-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: var(--space-md); margin-bottom: 6px;
+}
+.skill-name { color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; }
+.skill-years { color: var(--text-muted); font-size: 0.8rem; }
+.skill-bar-css {
+  height: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-dim);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.skill-bar-css::after {
+  content: '';
+  position: absolute; inset: 0;
+  width: 0;
+  background: linear-gradient(90deg, var(--text-secondary), var(--text-primary));
+  box-shadow: var(--glow);
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.skill.animate .skill-bar-css::after { width: var(--level); }
+.skill-bar-footer {
+  display: flex; justify-content: space-between;
+  font-size: 0.75rem; margin-top: 4px;
+}
+.skill-percent { color: var(--accent-cyan); }
+.skill-level { color: var(--text-muted); letter-spacing: 1px; }
+
+/* ============================================
+   PROJECTS / COLLABS
+   ============================================ */
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-lg);
+  margin-top: var(--space-md);
+}
+
+.project-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: var(--space-md);
+  transition: all var(--transition);
+  position: relative;
+  opacity: 0;
+  transform: translateY(15px);
+  animation: cardIn 500ms ease-out forwards;
+}
+.project-card:nth-child(1) { animation-delay: 100ms; }
+.project-card:nth-child(2) { animation-delay: 200ms; }
+.project-card:nth-child(3) { animation-delay: 300ms; }
+@keyframes cardIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+.project-card:hover {
+  border-color: var(--border-primary);
+  box-shadow: var(--glow);
+  transform: translateY(-3px);
+}
+.project-card::before {
+  content: '###';
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  display: block;
+  margin-bottom: var(--space-xs);
+}
+
+.project-ascii {
+  font-family: var(--font-mono);
+  white-space: pre;
+  color: var(--accent-magenta);
+  font-size: 0.7rem;
+  line-height: 1.2;
+  margin: var(--space-sm) 0;
+  text-shadow: 0 0 4px rgba(255,121,198,0.4);
+}
+
+.project-title {
+  color: var(--accent-cyan);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+.project-meta {
+  display: flex; flex-wrap: wrap; gap: var(--space-sm);
+  font-size: 0.75rem; color: var(--text-muted);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px dashed var(--border-dim);
+}
+.project-meta .role { color: var(--accent-yellow); }
+.project-meta .date { color: var(--accent-magenta); }
+
+.project-description {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  margin-bottom: var(--space-sm);
+}
+.project-contrib-label {
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: var(--space-sm) 0;
+}
+.project-list {
+  list-style: none; padding: 0;
+  margin-bottom: var(--space-md);
+}
+.project-list li {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  padding-left: var(--space-md);
+  margin-bottom: 6px;
+  position: relative;
+  line-height: 1.5;
+}
+.project-list li::before {
+  content: '-';
+  color: var(--text-muted);
+  position: absolute; left: 0;
+}
+
+.tech-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px dashed var(--border-dim);
+}
+.tech-tag {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  transition: var(--transition);
+  cursor: default;
+}
+.tech-tag:hover {
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+  box-shadow: var(--glow);
+}
+
+.project-link {
+  display: inline-block;
+  margin-top: var(--space-md);
+  color: var(--accent-yellow);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-bottom: 1px dashed var(--accent-yellow);
+  transition: var(--transition);
+}
+.project-link:hover {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+  text-shadow: var(--glow);
+}
+
+/* ============================================
+   INTERACTIVE COMMAND BAR
+   ============================================ */
+.command-bar {
+  border-top: 1px solid var(--border-dim);
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: 0.9rem;
+  position: sticky;
+  bottom: 0;
+}
+.command-bar .prompt-static {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.command-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  caret-color: var(--text-primary);
+  min-width: 0;
+}
+.command-bar input::placeholder { color: var(--text-dim); }
+
+/* ============================================
+   HELP OVERLAY
+   ============================================ */
+.help-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10, 14, 20, 0.92);
+  backdrop-filter: blur(4px);
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+  animation: fadeIn 200ms ease-out;
+}
+.help-overlay.open { display: flex; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.help-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: var(--space-lg);
+  max-width: 640px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 0 40px var(--border-glow);
+}
+.help-box h2 {
+  color: var(--accent-yellow);
+  font-size: 1.1rem;
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px dashed var(--border-dim);
+}
+.help-cmd {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  font-size: 0.85rem;
+  border-bottom: 1px dotted var(--border-dim);
+}
+.help-cmd:last-child { border-bottom: none; }
+.help-cmd .cmd { color: var(--accent-cyan); font-weight: 700; }
+.help-cmd .desc { color: var(--text-secondary); }
+.help-hint {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px dashed var(--border-dim);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* ============================================
+   TOAST
+   ============================================ */
+.toast {
+  position: fixed;
+  bottom: 80px; right: 24px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  box-shadow: var(--glow);
+  z-index: 10001;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 300ms ease;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+/* ============================================
+   HIDDEN SECTIONS (for command navigation)
+   ============================================ */
+.section { display: none; animation: sectionIn 400ms ease-out; }
+.section.active { display: block; }
+@keyframes sectionIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  html { font-size: 13px; }
+  .terminal { padding: var(--space-sm); }
+  .terminal-body { padding: var(--space-md); }
+  .ascii-art { font-size: 5px; }
+  .system-info { grid-template-columns: 1fr; gap: var(--space-xs); }
+  .system-info dt { margin-top: var(--space-sm); }
+  .projects-grid { grid-template-columns: 1fr; }
+  .help-cmd { grid-template-columns: 1fr; gap: 2px; }
+  .command-bar { font-size: 0.8rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="terminal">
+  <div class="terminal-window">
+
+    <!-- HEADER -->
+    <div class="terminal-header">
+      <div class="terminal-dots"><span></span><span></span><span></span></div>
+      <div class="terminal-title" id="windowTitle">alex@quantum-box:~/portfolio</div>
+      <div class="terminal-status">● ONLINE</div>
+    </div>
+
+    <!-- BODY -->
+    <div class="terminal-body" id="terminalBody">
+
+      <!-- Notice móvil -->
+      <div class="notice">
+        ⚠️ [DISPLAY_NOTICE]: BEST VIEWED ON DESKTOP / PC<br>
+        For the full interactive CRT experience, view this portfolio on a laptop or desktop.
+      </div>
+
+      <!-- WELCOME -->
+      <div class="prompt">
+        <span class="prompt-user">alex</span>
+        <span class="prompt-sep">@</span>
+        <span class="prompt-host">quantum-box</span>
+        <span class="prompt-sep">:</span>
+        <span class="prompt-path">~/portfolio</span>
+        <span class="prompt-symbol">$</span>
+        <span class="cursor"></span>
+      </div>
+
+      <div class="line welcome-line">
+        WELCOME TO <strong>QUANTUM-TUI</strong> TERMINAL INTERFACE v5.3.0 (x86_64-apple-darwin)
+      </div>
+      <div class="line" style="color: var(--text-muted); font-size: 0.85rem;">
+        Type <span style="color: var(--accent-cyan);">help</span> to view available commands, or click sections below.
+      </div>
+
+      <div class="tagline">Alex Devson — Senior Full Stack & Systems Engineer</div>
+      <div class="open-badge">OPEN FOR COLLABORATIONS & CONTRACTS</div>
+
+      <!-- NAV TABS -->
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0;">
+        <button class="section-tag active" data-section="about" style="cursor:pointer;">[about]</button>
+        <button class="section-tag" data-section="skills" style="cursor:pointer;">[skills]</button>
+        <button class="section-tag" data-section="collabs" style="cursor:pointer;">[collabs]</button>
+        <button class="section-tag" data-section="system" style="cursor:pointer;">[system]</button>
+        <button class="section-tag" onclick="openHelp()" style="cursor:pointer;">[help]</button>
+      </div>
+
+      <!-- ============ SECTION: SYSTEM INFO ============ -->
+      <section class="section active" id="section-system">
+        <h2 class="command-title">SYSTEM INFO v2.4</h2>
+
+        <pre class="ascii-art small magenta">
+ _   _ ___ _____ ___ ___  _   _ 
+| | | |_ _|_   _/ __| _ \| | | |
+| |_| || |  | || (__|   /| |_| |
+ \___/|___| |_| \___|_|_\ \___/ 
+        </pre>
+
+        <dl class="system-info">
+          <dt>OS</dt><dd>Arch Linux x86_64 / macOS Darwin</dd>
+          <dt>Kernel</dt><dd>6.10.8-zen1-1-zen</dd>
+          <dt>Uptime</dt><dd id="uptime">42 days, 13 hours, 37 mins</dd>
+          <dt>Shell</dt><dd>zsh 5.9 (x86_64-apple-darwin22.0)</dd>
+          <dt>WM/DE</dt><dd>i3-gaps / yabai</dd>
+          <dt>Editor</dt><dd>Neovim (NVChad) / VS Code</dd>
+          <dt>CPU</dt><dd>Apple M3 Max (16 cores)</dd>
+          <dt>Memory</dt><dd>24.5GiB / 64.0GiB</dd>
+          <dt>Palette</dt>
+          <dd class="palette-swatches">
+            <span class="swatch" style="background:#00ff9c" data-color="#00ff9c"></span>
+            <span class="swatch" style="background:#7ee787" data-color="#7ee787"></span>
+            <span class="swatch" style="background:#39d0d8" data-color="#39d0d8"></span>
+            <span class="swatch" style="background:#ff79c6" data-color="#ff79c6"></span>
+            <span class="swatch" style="background:#ffd580" data-color="#ffd580"></span>
+            <span class="swatch" style="background:#ffb86c" data-color="#ffb86c"></span>
+            <span class="swatch" style="background:#ff5555" data-color="#ff5555"></span>
+          </dd>
+        </dl>
+
+        <pre class="ascii-art cyan" style="font-size: clamp(3px, 0.7vw, 8px);">
+ ____  ____  _____ _   _ _____   _   _ _____ _____ 
+|  _ \|  _ \|  ___| | | |_   _| | | | |_   _|_   _|
+| |_) | |_) | |_  | |_| | | |   | |_| | | |   | |  
+|  __/|  _ <|  _| |  _  | | |   |  _  | | |   | |  
+|_|   |_| \_\_|   |_| |_| |_|   |_| |_| |_|   |_|  
+        </pre>
+
+        <div class="open-badge">OPEN FOR COLLABORATIONS & CONTRACTS</div>
+        <div class="prompt">
+          <span class="prompt-user">root</span>
+          <span class="prompt-sep">@</span>
+          <span class="prompt-host">quantum-box</span>
+          <span class="prompt-symbol"> $</span>
+          <span class="cursor"></span>
+        </div>
+      </section>
+
+      <!-- ============ SECTION: ABOUT ============ -->
+      <section class="section" id="section-about">
+        <h2 class="command-title">CAT BIO.TXT // ABOUT ME</h2>
+        <span class="section-tag active">[READ-ONLY]</span>
+
+        <p class="bio-text">
+          Passionate systems & web engineer with <strong style="color:var(--text-primary)">7+ years</strong> of experience building high-throughput edge systems, interactive web applications, and developer tools. Active open-source contributor and collaborative team player.
+        </p>
+
+        <div class="quote">
+          "Code is like humor. When you have to explain it, it's bad." — Cory House
+        </div>
+
+        <div class="meta-row">
+          <div><strong>Focus:</strong> Systems Architecture, Edge Systems & Web Performance</div>
+          <div><strong>Location:</strong> 📍 San Francisco, CA // UTC-7</div>
+        </div>
+      </section>
+
+      <!-- ============ SECTION: SKILLS ============ -->
+      <section class="section" id="section-skills">
+        <h2 class="command-title">./SKILLS.SH // TECHNICAL PROFICIENCY</h2>
+        <span class="section-tag active">[PROFICIENCY METRICS]</span>
+
+        <div class="skill-category">⚡ Core Languages</div>
+        <div id="skills-lang"></div>
+
+        <div class="skill-category">🌐 Frameworks & Frontend</div>
+        <div id="skills-front"></div>
+
+        <div class="skill-category">☁️ DevOps, Cloud & Architecture</div>
+        <div id="skills-devops"></div>
+
+        <div class="skill-category">🔗 Web3 & Blockchain</div>
+        <div id="skills-web3"></div>
+      </section>
+
+      <!-- ============ SECTION: COLLABS ============ -->
+      <section class="section" id="section-collabs">
+        <h2 class="command-title">CAT COLLABS.MD // TEAM COLLABORATIONS</h2>
+        <span class="section-tag active">[PARTNERSHIPS]</span>
+
+        <div class="projects-grid">
+
+          <!-- Project 1 -->
+          <div class="project-card">
+            <div class="project-title">🤝 Distributed Edge Cache Protocol (v2.0)</div>
+            <div class="project-ascii">
++--------------------+
+| HYPEREDGE PROTOCOL |
+| [STATUS: ACTIVE]   |
++--------------------+
+            </div>
+            <div class="project-meta">
+              <span>Partner: HyperEdge Foundation</span>
+              <span class="role">Lead Protocol Architect</span>
+              <span class="date">2024 - PRESENT</span>
+            </div>
+            <p class="project-description">
+              Co-designed an open-source, ultra-low latency distributed edge cache protocol for multi-region serverless runtimes.
+            </p>
+            <div class="project-contrib-label">Key Contributions:</div>
+            <ul class="project-list">
+              <li>Architected lock-free data structures in Rust, reducing memory footprint by 35%.</li>
+              <li>Co-authored RFC specs for async peer-to-peer buffer sync over QUIC.</li>
+              <li>Mentored 12+ open-source contributors on core module development.</li>
+            </ul>
+            <div class="tech-tags">
+              <span class="tech-tag">Rust</span>
+              <span class="tech-tag">Tokio</span>
+              <span class="tech-tag">QUIC</span>
+              <span class="tech-tag">WebAssembly</span>
+            </div>
+            <a href="#" class="project-link">View Project ↗</a>
+          </div>
+
+          <!-- Project 2 -->
+          <div class="project-card">
+            <div class="project-title">🤝 Browser WebAudio DSP Sequencer</div>
+            <div class="project-ascii">
+ /\_/\   AETHERIA
+( o.o ) [AUDIO LABS]
+ > ^ <  ♪ ♫ ♩ ♬
+            </div>
+            <div class="project-meta">
+              <span>Partner: Aetheria Audio Labs</span>
+              <span class="role">Senior Frontend & Audio</span>
+              <span class="date">2023 - 2024</span>
+            </div>
+            <p class="project-description">
+              Joint collaboration to create a browser-based polyphonic synthesizer engine powered by Astro.js and WebAudio Worklets.
+            </p>
+            <div class="project-contrib-label">Key Contributions:</div>
+            <ul class="project-list">
+              <li>Implemented real-time audio wave visualization using HTML5 Canvas & WebGL shaders.</li>
+              <li>Optimized audio buffer rendering latency down to sub-5ms across Chrome & Safari.</li>
+              <li>Built responsive TUI modular controls using Tailwind CSS.</li>
+            </ul>
+            <div class="tech-tags">
+              <span class="tech-tag">Astro.js</span>
+              <span class="tech-tag">TypeScript</span>
+              <span class="tech-tag">WebAudio API</span>
+              <span class="tech-tag">Canvas</span>
+            </div>
+            <a href="#" class="project-link">View Project ↗</a>
+          </div>
+
+          <!-- Project 3 -->
+          <div class="project-card">
+            <div class="project-title">🤝 Context-Aware Terminal AI Co-Pilot</div>
+            <div class="project-ascii">
+[KERNEL-AI COLLAB]
+Intent    --> [Local LLM]
+Execution --> bash -c
+            </div>
+            <div class="project-meta">
+              <span>Partner: KernelAI Research</span>
+              <span class="role">Core Systems</span>
+              <span class="date">2023 - PRESENT</span>
+            </div>
+            <p class="project-description">
+              Partnered with AI researchers to build a lightweight, privacy-focused CLI co-pilot that translates intent to verified shell commands.
+            </p>
+            <div class="project-contrib-label">Key Contributions:</div>
+            <ul class="project-list">
+              <li>Designed local LLM token streaming pipeline via IPC sockets.</li>
+              <li>Engineered strict command validation sandboxing for dangerous shell commands.</li>
+            </ul>
+            <div class="tech-tags">
+              <span class="tech-tag">Node.js</span>
+              <span class="tech-tag">TypeScript</span>
+              <span class="tech-tag">Ollama API</span>
+              <span class="tech-tag">Inquirer.js</span>
+            </div>
+            <a href="#" class="project-link">View Project ↗</a>
+          </div>
+
+        </div>
+      </section>
+
+    </div><!-- /terminal-body -->
+
+    <!-- COMMAND BAR -->
+    <div class="command-bar">
+      <span class="prompt-static">guest@quantum-box:~$</span>
+      <input type="text" id="cmdInput" placeholder="type 'help' for commands..." autocomplete="off" spellcheck="false">
+    </div>
+
+  </div><!-- /terminal-window -->
+</div><!-- /terminal -->
+
+<!-- HELP OVERLAY -->
+<div class="help-overlay" id="helpOverlay" onclick="if(event.target===this) closeHelp()">
+  <div class="help-box">
+    <h2>❯ AVAILABLE COMMANDS</h2>
+    <div class="help-cmd"><span class="cmd">help</span><span class="desc">Show this help menu</span></div>
+    <div class="help-cmd"><span class="cmd">about</span><span class="desc">Read bio.txt — about me</span></div>
+    <div class="help-cmd"><span class="cmd">skills</span><span class="desc">Run ./skills.sh — technical proficiency</span></div>
+    <div class="help-cmd"><span class="cmd">collabs</span><span class="desc">Cat collabs.md — team collaborations</span></div>
+    <div class="help-cmd"><span class="cmd">system</span><span class="desc">Show system info</span></div>
+    <div class="help-cmd"><span class="cmd">home</span><span class="desc">Return to welcome screen</span></div>
+    <div class="help-cmd"><span class="cmd">clear</span><span class="desc">Clear the terminal</span></div>
+    <div class="help-cmd"><span class="cmd">sound</span><span class="desc">Toggle typing sound on/off</span></div>
+    <div class="help-cmd"><span class="cmd">contact</span><span class="desc">Show contact information</span></div>
+    <div class="help-hint">Press <strong>ESC</strong> or click outside to close · Try <strong>↑</strong> / <strong>↓</strong> for history</div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================
+   SKILLS DATA
+   ============================================ */
+const SKILLS = {
+  lang: [
+    ['TypeScript / JavaScript', '7 yrs', 95, 'EXPERT'],
+    ['Rust', '4 yrs', 85, 'ADVANCED'],
+    ['Go (Golang)', '3 yrs', 80, 'ADVANCED'],
+    ['HTML5 / CSS3 / Tailwind', '7 yrs', 95, 'EXPERT'],
+    ['Python', '5 yrs', 88, 'PRO'],
+    ['SQL & NoSQL', '6 yrs', 90, 'PRO'],
+  ],
+  front: [
+    ['Astro.js', '3 yrs', 95, 'EXPERT'],
+    ['React / Next.js', '6 yrs', 92, 'PRO'],
+    ['Tailwind CSS v4', '4 yrs', 95, 'EXPERT'],
+    ['Node.js / Hono / Express', '6 yrs', 90, 'PRO'],
+    ['Vue / Nuxt', '3 yrs', 80, 'ADVANCED'],
+    ['WebAssembly (Wasm)', '2 yrs', 75, 'INTERMEDIATE'],
+  ],
+  devops: [
+    ['Docker / Containerization', '5 yrs', 88, 'PRO'],
+    ['Kubernetes & Helm', '3 yrs', 80, 'ADVANCED'],
+    ['Linux Admin & Bash', '6 yrs', 92, 'PRO'],
+    ['PostgreSQL & Redis', '5 yrs', 90, 'PRO'],
+    ['CI/CD GitHub Actions', '5 yrs', 88, 'PRO'],
+    ['Cloudflare Edge Workers', '4 yrs', 85, 'ADVANCED'],
+  ],
+  web3: [
+    ['Solidity', '2 yrs', 75, 'INTERMEDIATE'],
+    ['EVM', '3 yrs', 80, 'ADVANCED'],
+    ['Hardhat', '4 yrs', 85, 'PRO'],
+    ['Truffle', '3 yrs', 80, 'ADVANCED'],
+    ['Ethers.js', '5 yrs', 90, 'PRO'],
+    ['Web3.js', '4 yrs', 85, 'PRO'],
+  ],
+};
+
+/* ============================================
+   RENDER SKILLS
+   ============================================ */
+function renderSkills() {
+  for (const [key, list] of Object.entries(SKILLS)) {
+    const container = document.getElementById('skills-' + key);
+    if (!container) continue;
+    container.innerHTML = list.map(([name, years, pct, level]) => `
+      <div class="skill" data-level="${pct}%">
+        <div class="skill-header">
+          <span class="skill-name">${name}</span>
+          <span class="skill-years">${years}</span>
+        </div>
+        <div class="skill-bar-css"></div>
+        <div class="skill-bar-footer">
+          <span class="skill-percent">${pct}%</span>
+          <span class="skill-level">${level}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+/* ============================================
+   SECTION NAVIGATION
+   ============================================ */
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  const section = document.getElementById('section-' + name);
+  if (section) {
+    section.classList.add('active');
+    // Re-trigger skill animation
+    if (name === 'skills') {
+      setTimeout(() => {
+        document.querySelectorAll('.skill').forEach(s => {
+          s.classList.remove('animate');
+          void s.offsetWidth;
+          s.style.setProperty('--level', s.dataset.level);
+          s.classList.add('animate');
+        });
+      }, 50);
+    }
+    document.getElementById('windowTitle').textContent =
+      `alex@quantum-box:~/portfolio/${name}`;
+    document.getElementById('terminalBody').scrollTop = 0;
+  }
+  // update tabs
+  document.querySelectorAll('[data-section]').forEach(t => {
+    t.classList.toggle('active', t.dataset.section === name);
+  });
+}
+
+document.querySelectorAll('[data-section]').forEach(tab => {
+  tab.addEventListener('click', () => showSection(tab.dataset.section));
+});
+
+/* ============================================
+   TYPING SOUND (WebAudio)
+   ============================================ */
+let audioCtx = null;
+let soundEnabled = true;
+
+function playKeySound() {
+  if (!soundEnabled) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = 800 + Math.random() * 400;
+    gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05);
+  } catch (e) { /* silent */ }
+}
+
+/* ============================================
+   COMMAND INPUT
+   ============================================ */
+const cmdInput = document.getElementById('cmdInput');
+const history = [];
+let histIndex = -1;
+
+cmdInput.addEventListener('keydown', (e) => {
+  playKeySound();
+
+  if (e.key === 'Enter') {
+    const cmd = cmdInput.value.trim().toLowerCase();
+    if (cmd) {
+      history.push(cmd);
+      histIndex = history.length;
+      executeCommand(cmd);
+    }
+    cmdInput.value = '';
+  }
+
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (histIndex > 0) {
+      histIndex--;
+      cmdInput.value = history[histIndex] || '';
+    }
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (histIndex < history.length - 1) {
+      histIndex++;
+      cmdInput.value = history[histIndex] || '';
+    } else {
+      histIndex = history.length;
+      cmdInput.value = '';
+    }
+  }
+});
+
+function executeCommand(cmd) {
+  switch (cmd) {
+    case 'help':
+      openHelp();
+      break;
+    case 'about':
+      showSection('about');
+      toast('❯ cat bio.txt');
+      break;
+    case 'skills':
+      showSection('skills');
+      toast('❯ ./skills.sh --proficiency');
+      break;
+    case 'collabs':
+      showSection('collabs');
+      toast('❯ cat collabs.md');
+      break;
+    case 'system':
+    case 'sysinfo':
+      showSection('system');
+      toast('❯ system info v2.4');
+      break;
+    case 'home':
+    case 'clear':
+      showSection('system');
+      toast('❯ terminal reset');
+      break;
+    case 'sound':
+      soundEnabled = !soundEnabled;
+      toast(soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF');
+      break;
+    case 'contact':
+      toast('📧 alex@quantum-box.dev');
+      break;
+    case 'whoami':
+      toast('guest@quantum-box');
+      break;
+    default:
+      toast(`❌ command not found: ${cmd}`, true);
+  }
+}
+
+/* ============================================
+   HELP OVERLAY
+   ============================================ */
+const helpOverlay = document.getElementById('helpOverlay');
+function openHelp() { helpOverlay.classList.add('open'); cmdInput.blur(); }
+function closeHelp() { helpOverlay.classList.remove('open'); cmdInput.focus(); }
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeHelp();
+  if (e.key === '/' && document.activeElement !== cmdInput) {
+    e.preventDefault();
+    cmdInput.focus();
+  }
+});
+
+/* ============================================
+   TOAST
+   ============================================ */
+const toastEl = document.getElementById('toast');
+let toastTimer;
+function toast(msg, isError = false) {
+  clearTimeout(toastTimer);
+  toastEl.textContent = msg;
+  toastEl.style.borderColor = isError ? 'var(--accent-red)' : 'var(--border-primary)';
+  toastEl.style.color = isError ? 'var(--accent-red)' : 'var(--text-primary)';
+  toastEl.classList.add('show');
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+}
+
+/* ============================================
+   UPTIME (dynamic)
+   ============================================ */
+function updateUptime() {
+  const el = document.getElementById('uptime');
+  if (!el) return;
+  const start = Date.now() - (42 * 24 * 60 + 13 * 60 + 37) * 60 * 1000;
+  const diff = Date.now() - start;
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  el.textContent = `${d} days, ${h} hours, ${m} mins`;
+}
+setInterval(updateUptime, 60000);
+
+/* ============================================
+   BOOT
+   ============================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  renderSkills();
+  updateUptime();
+
+  // Animación de entrada con typing en el welcome
+  const welcome = document.querySelector('.welcome-line');
+  if (welcome) {
+    const text = welcome.innerHTML;
+    welcome.innerHTML = '';
+    let i = 0;
+    const temp = document.createElement('div');
+    temp.innerHTML = text;
+    const plain = temp.textContent;
+    const chars = text.split('');
+    const interval = setInterval(() => {
+      if (i >= chars.length) { clearInterval(interval); return; }
+      welcome.innerHTML = chars.slice(0, i + 1).join('');
+      i += 1;
+    }, 15);
+  }
+
+  // Mostrar toast de bienvenida
+  setTimeout(() => toast('❯ Welcome to Quantum-TUI v5.3.0'), 800);
+
+  // Focus al input
+  cmdInput.focus();
+});
+</script>
+
+</body>
+</html>
