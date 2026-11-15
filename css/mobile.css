@@ -1,0 +1,107 @@
+/* Modo móvil activado por toggle */
+body.mobile-mode {
+  overflow: auto;
+}
+body.mobile-mode #desktop {
+  position: relative;
+  overflow: visible;
+  padding: 16px 16px 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100vh;
+}
+body.mobile-mode #matrix { opacity: 0.2; }
+body.mobile-mode .window {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0;
+  transform: none !important;
+  animation: none;
+}
+body.mobile-mode .window.maximized {
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  top: auto !important;
+  left: auto !important;
+}
+body.mobile-mode .window.minimized { display: flex; }
+body.mobile-mode .window .resize-handle { display: none; }
+body.mobile-mode .window .window-header { cursor: default; }
+body.mobile-mode .window .window-dots span[data-act="minimize"] { display: none; }
+body.mobile-mode .window .window-dots span[data-act="maximize"] { display: none; }
+body.mobile-mode .window-body { max-height: none; overflow: visible; }
+body.mobile-mode #dock {
+  bottom: 8px;
+  padding: 6px 8px;
+  gap: 4px;
+  border-radius: 12px;
+  max-width: calc(100vw - 16px);
+}
+body.mobile-mode .dock-btn {
+  min-width: 34px; height: 34px;
+  font-size: 0.85rem;
+  padding: 4px;
+}
+
+/* Modo móvil real (pantalla pequeña) - siempre aplica */
+@media (max-width: 768px) {
+  html { font-size: 13px; }
+  #dock {
+    padding: 6px 8px;
+    gap: 4px;
+    bottom: 8px;
+  }
+  .dock-btn {
+    min-width: 34px; height: 34px;
+    font-size: 0.85rem;
+  }
+  .help-cmd { grid-template-columns: 1fr; gap: 2px; }
+  .window {
+    min-width: 280px;
+    max-width: calc(100vw - 20px);
+  }
+  .window:not(.mobile-mode .window) {
+    left: 10px !important;
+    width: calc(100vw - 20px) !important;
+  }
+  .drum-grid {
+    grid-template-columns: 60px repeat(16, 1fr);
+    gap: 2px;
+  }
+  .drum-step { min-height: 16px; }
+  .drum-label { font-size: 0.6rem; }
+  .music-viz { height: 35px; }
+  .music-viz span { width: 3px; }
+}
+
+/* Indicador de modo móvil en el dock */
+body.mobile-mode #modeToggle {
+  background: var(--accent-magenta);
+  color: var(--bg-primary);
+  border-color: var(--accent-magenta);
+}
+
+/* Aviso en móvil real */
+body.mobile-mode::before {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.03) 3px, rgba(0,0,0,0.03) 3px
+  );
+}
+
+/* Botón toggle en dock */
+.dock-toggle {
+  border-color: var(--accent-magenta) !important;
+  color: var(--accent-magenta) !important;
+}
+.dock-toggle:hover {
+  background: var(--accent-magenta) !important;
+  color: var(--bg-primary) !important;
+  box-shadow: 0 0 10px rgba(255,121,198,0.5) !important;
+}
