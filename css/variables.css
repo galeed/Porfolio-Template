@@ -1,6 +1,27 @@
 :root {
-  --text-primary: #00ff9c;  /* color principal */
+  --bg-primary: #0a0e14;
+  --bg-secondary: #0d1117;
+  --bg-panel: #11161d;
+  --bg-hover: #1a2029;
+  --text-primary: #00ff9c;
+  --text-secondary: #7ee787;
+  --text-muted: #6e7681;
+  --text-dim: #484f58;
   --accent-cyan: #39d0d8;
   --accent-magenta: #ff79c6;
-  /* ... */
+  --accent-yellow: #ffd580;
+  --accent-red: #ff5555;
+  --accent-orange: #ffb86c;
+  --accent-purple: #bd93f9;
+  --border-primary: #00ff9c;
+  --border-dim: #30363d;
+  --border-glow: rgba(0, 255, 156, 0.3);
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --glow: 0 0 8px var(--border-glow);
+  --transition: 150ms ease;
 }
