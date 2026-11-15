@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" fill="#0a0e14" rx="6"/>
+  <text x="16" y="23" font-family="monospace" font-size="18" font-weight="bold"
+        fill="#00ff9c" text-anchor="middle" filter="url(#g)">❯_</text>
+  <defs>
+    <filter id="g">
+      <feGaussianBlur stdDeviation="1" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+</svg>
