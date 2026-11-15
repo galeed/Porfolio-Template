@@ -1,0 +1,65 @@
+/* Snap preview (estilo Hyprland) */
+#snapPreview {
+  position: fixed;
+  z-index: 4000;
+  pointer-events: none;
+  background: rgba(0, 255, 156, 0.12);
+  border: 2px solid var(--text-primary);
+  border-radius: 8px;
+  box-shadow: 0 0 30px var(--border-glow), inset 0 0 30px rgba(0,255,156,0.1);
+  opacity: 0;
+  transition: opacity 120ms ease, left 180ms cubic-bezier(0.2,0.8,0.2,1),
+              top 180ms cubic-bezier(0.2,0.8,0.2,1),
+              width 180ms cubic-bezier(0.2,0.8,0.2,1),
+              height 180ms cubic-bezier(0.2,0.8,0.2,1);
+  display: none;
+}
+#snapPreview.visible { opacity: 1; }
+#snapPreview::before {
+  content: attr(data-zone);
+  position: absolute;
+  top: 8px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* Ventanas que ocupan zonas Hyprland */
+.window.snap-left {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(57, 208, 216, 0.4), 0 10px 40px rgba(0,0,0,0.8);
+}
+.window.snap-right {
+  border-color: var(--accent-magenta);
+  box-shadow: 0 0 20px rgba(255, 121, 198, 0.4), 0 10px 40px rgba(0,0,0,0.8);
+}
+.window.snap-top {
+  border-color: var(--accent-yellow);
+  box-shadow: 0 0 20px rgba(255, 213, 128, 0.4), 0 10px 40px rgba(0,0,0,0.8);
+}
+
+/* Indicador de zona en el borde de la ventana */
+.window.snap-left::after,
+.window.snap-right::after,
+.window.snap-top::after {
+  content: '';
+  position: absolute;
+  width: 3px; height: 100%;
+  top: 0;
+}
+.window.snap-left::after { left: 0; background: var(--accent-cyan); }
+.window.snap-right::after { right: 0; background: var(--accent-magenta); }
+.window.snap-top::after { top: 0; left: 0; width: 100%; height: 3px; background: var(--accent-yellow); }
+
+/* Animación de snap */
+.window.snapping {
+  transition: left 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              top 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              width 250ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              height 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
